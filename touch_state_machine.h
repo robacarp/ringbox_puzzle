@@ -4,7 +4,7 @@
 
 class TouchStateMachine {
   unsigned short state;
-  unsigned short * states[MAX_STATES];
+  unsigned short states[MAX_STATES];
   unsigned short pass_at;
 
   public:
@@ -22,11 +22,13 @@ class TouchStateMachine {
 };
 
 void TouchStateMachine::advance_state( unsigned short new_state ) {
-  if (*states[ state ] == new_state) {
+  if (new_state == 0x0) return;
+
+  if (states[ state ] == new_state) {
     if ( state < MAX_STATES ) {
       state ++;
     }
-  } else if ( *states[0] == new_state ) {
+  } else if ( states[0] == new_state ) {
     state = 1;
   } else {
     state = 0;
@@ -42,18 +44,14 @@ unsigned short TouchStateMachine::current_state(){
 }
 
 bool TouchStateMachine::completed() {
-  Serial.print(" pass at: ");
-  Serial.println(pass_at);
-  Serial.print(" state : ");
-  Serial.println(state);
-  state >= pass_at;
+  return state >= pass_at;
 }
 
 unsigned short TouchStateMachine::get_state( unsigned short position ) {
-  return * states[ position ];
+  return states[ position ];
 }
 
 
 void TouchStateMachine::set_state( unsigned short position, unsigned short value ) {
-  states[ position ] = & value;
+  states[ position ] = value;
 }
