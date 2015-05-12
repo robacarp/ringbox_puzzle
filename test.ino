@@ -6,7 +6,7 @@ boolean tests_pass = true;
 
 void assert(bool test){
   if (test) {
-    p('.');
+    // p('.');
   } else {
     tests_pass = false;
     p('#');
