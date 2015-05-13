@@ -1,5 +1,14 @@
 #include "Arduino.h"
 
+#define ONE   0x1
+#define TWO   0x2
+#define THREE 0x4
+#define FOUR  0x8
+#define FIVE  0x10
+#define SIX   0x20
+#define SEVEN 0x30
+#define EIGHT 0x40
+
 #define MAX_STATES 10
 
 class TouchStateMachine {
@@ -8,6 +17,7 @@ class TouchStateMachine {
   unsigned short pass_at;
 
   public:
+    void setup();
     void advance_state(unsigned short new_state);
     void reset();
     bool completed();
@@ -20,6 +30,13 @@ class TouchStateMachine {
       pass_at = _pass_at;
     }
 };
+
+void TouchStateMachine::setup(){
+  set_state(0, ONE);
+  set_state(1, TWO);
+  set_state(2, THREE);
+  set_state(3, FOUR);
+}
 
 void TouchStateMachine::advance_state( unsigned short new_state ) {
   if (new_state == 0x0) return;
