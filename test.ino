@@ -1,3 +1,5 @@
+#include "tones.h"
+
 #define b(v) Serial.println( v ? "true" : "false" );
 #define p(a) Serial.print(a);
 #define q(a,b) Serial.print(a,b);
@@ -13,7 +15,7 @@ void assert(bool test){
   }
 }
 
-bool test() {
+bool test_state_machine() {
   // not passing initially
   assert( ! password.completed() );
 
@@ -69,7 +71,23 @@ bool test() {
   return tests_pass;
 }
 
+// Negative Longitude is West.
+// Negative Latitude is South.
+bool test_gps(){
+}
 
+bool test_music(){
+  assert( C == 32.7 );
+  assert( NOTE(C, 2) == 65.4 );
+  assert( NOTE(A, 4) == 440.0 );
+  assert( PWM_WAIT( NOTE( C, 3 ) ) == 3822 );
+  assert( PWM_WAIT( NOTE( A, 4 ) ) == 1136 );
+  return tests_pass;
+}
+
+bool test(){
+  return test_state_machine() && test_gps() && test_music();
+}
 
 void test_lock(){
   Serial.print("Self Testing");
