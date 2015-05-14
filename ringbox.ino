@@ -10,12 +10,15 @@ unsigned short irqpin = 10;
 unsigned short gps_rx = 4;
 unsigned short gps_tx = 3;
 
+float destination_latitude = 0.0;
+float destination_longitude = 0.0;
+
 bool solved = false;
 bool home = false;
 
 TouchStateMachine password(4);
 MPR121 touch(irqpin);
-GPS gps(gps_rx, gps_tx);
+GPS gps(gps_rx, gps_tx, destination_latitude, destination_longitude);
 
 void setup(){
   Serial.begin(115200);
@@ -58,16 +61,16 @@ void check_puzzle(){
 }
 
 void check_gps(){
-  gps.read();
-  gps.extract();
+  // gps.read();
+  // gps.extract();
 
-  if ( ! gps.have_lock() ) {
-    home = false;
-    return;
-  }
+  // if ( ! gps.have_lock() ) {
+  //   home = false;
+  //   return;
+  // }
 
-  Serial.println("lock found!");
-  gps.dump();
+  // Serial.println("lock found!");
+  // gps.dump();
   home = true;
 }
 

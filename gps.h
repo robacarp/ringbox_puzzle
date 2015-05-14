@@ -1,13 +1,17 @@
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
 #include <Arduino.h>
+#include <math.h>
 
 #define MAX_PARSE_TIME 50
 #define REPORT_PARSE_TIME MAX_PARSE_TIME * 0.8
+#define EARTH_RADIUS 6371
+#define TO_RAD (3.1415926536 / 180)
 
 class GPS {
   unsigned short rx = 4;
   unsigned short tx = 3;
+  float target_latitude, target_longitude;
 
   bool new_data;
 
@@ -19,12 +23,20 @@ class GPS {
     unsigned long age, satellite_count, precision, chars;
     unsigned short sentences, failed_checksum;
 
-    GPS (unsigned short rx, unsigned short tx) : rx(rx), tx(tx), new_data(false) {}
+    GPS (unsigned short rx, unsigned short tx, float target_latitude, float target_longitude)
+      : rx(rx), tx(tx), new_data(false),
+        target_latitude(target_latitude),
+        target_longitude(target_longitude)
+    {}
+
+    static double coordinate_distance(double, double, double, double);
+
     void setup();
     void read();
     void extract();
-    void dump();
     bool have_lock();
+    float distance_to_target();
+    void dump();
 };
 
 
@@ -77,6 +89,25 @@ void GPS::extract() {
 
 bool GPS::have_lock(){
   return latitude != 0.0 && longitude != 0.0 && precision > 0;
+}
+
+
+// nicked from http://rosettacode.org/wiki/Haversine_formula#C
+double GPS::coordinate_distance(double th1, double ph1, double th2, double ph2) {
+  double dx, dy, dz;
+  ph1 -= ph2;
+  ph1 *= TO_RAD, th1 *= TO_RAD, th2 *= TO_RAD;
+
+  dz = sin(th1) - sin(th2);
+  dx = cos(ph1) * cos(th1) - cos(th2);
+  dy = sin(ph1) * cos(th1);
+  return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * EARTH_RADIUS;
+}
+
+
+float GPS::distance_to_target(){
+  if (! have_lock() ) return 65536;
+  return coordinate_distance(latitude, longitude, target_latitude, target_longitude);
 }
 
 void GPS::dump() {

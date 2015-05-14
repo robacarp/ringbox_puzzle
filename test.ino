@@ -15,6 +15,15 @@ void assert(bool test){
   }
 }
 
+bool test_tests(){
+  if ( ! tests_pass ) return false;
+  assert(false);
+  if ( tests_pass ) return false;
+  tests_pass = true;
+
+  return tests_pass;
+}
+
 bool test_state_machine() {
   // not passing initially
   assert( ! password.completed() );
@@ -73,7 +82,34 @@ bool test_state_machine() {
 
 // Negative Longitude is West.
 // Negative Latitude is South.
+// Testing the haversine to be accurate to <1% error
 bool test_gps(){
+  double distance, lat_a, lon_a, lat_b, lon_b, expected, delta;
+  // 41.6076N, 88.2037W
+  // 41.6507N, 88.2555W
+  // 6.442 km
+  lat_a = 41.6076;
+  lon_a = -88.2037;
+  lat_b = 41.6507;
+  lon_b = -88.2555;
+  distance = GPS::coordinate_distance(lat_a, lon_a, lat_b, lon_b);
+  expected = 6.442;
+  delta = expected - distance;
+  assert(delta / expected < 0.01);
+
+  // 41.6076N, 88.2037W
+  // 35.1346N, 85.3584W
+  // 760.2 km says wolframalpha
+  lat_a = 41.6076;
+  lon_a = -88.2037;
+  lat_b = 35.1346;
+  lon_b = -85.3584;
+  distance = GPS::coordinate_distance(lat_a, lon_a, lat_b, lon_b);
+  expected = 760.2;
+  delta = 760.2 - distance;
+  assert(delta / expected < 0.01);
+
+  return tests_pass;
 }
 
 bool test_music(){
@@ -86,26 +122,15 @@ bool test_music(){
 }
 
 bool test(){
-  return test_state_machine() && test_gps() && test_music();
+  return test_tests() && test_state_machine() && test_gps() && test_music();
 }
 
 void test_lock(){
-  Serial.print("Self Testing");
+  Serial.print("\n\nSelf Test:");
+  bool result = test();
 
-  if ( ! test() ) {
-    unsigned int mils;
-    while( true ) {
-      mils = millis() % 500;
-      if (mils > 100 && mils < 150 ||
-          mils > 200 && mils < 250
-      ) {
-        digitalWrite(13, true);
-      } else {
-        digitalWrite(13, false);
-      }
-    }
-
-  } else {
+  if ( result ) {
+    Serial.println(": Pass\n");
     digitalWrite(13, HIGH);
     delay(500);
     digitalWrite(13, LOW);
@@ -113,7 +138,20 @@ void test_lock(){
     digitalWrite(13, HIGH);
     delay(50);
     digitalWrite(13, LOW);
+
+    return;
   }
 
-  Serial.println(": Pass\n");
+  // heartbeat blinkenlight on fail
+  unsigned int mils;
+  while( true ) {
+    mils = millis() % 500;
+    if (mils > 100 && mils < 150 ||
+        mils > 200 && mils < 250
+    ) {
+      digitalWrite(13, true);
+    } else {
+      digitalWrite(13, false);
+    }
+  }
 }
