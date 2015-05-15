@@ -11,7 +11,7 @@
 class GPS {
   unsigned short rx = 4;
   unsigned short tx = 3;
-  float target_latitude, target_longitude;
+  double target_latitude, target_longitude;
 
   bool new_data;
 
@@ -20,10 +20,11 @@ class GPS {
 
   public:
     float latitude, longitude;
+    double distance;
     unsigned long age, satellite_count, precision, chars;
     unsigned short sentences, failed_checksum;
 
-    GPS (unsigned short rx, unsigned short tx, float target_latitude, float target_longitude)
+    GPS (unsigned short rx, unsigned short tx, double target_latitude, double target_longitude)
       : rx(rx), tx(tx), new_data(false),
         target_latitude(target_latitude),
         target_longitude(target_longitude)
@@ -35,7 +36,8 @@ class GPS {
     void read();
     void extract();
     bool have_lock();
-    float distance_to_target();
+    double distance_to_target();
+    bool at_target();
     void dump();
 };
 
@@ -53,9 +55,11 @@ void GPS::read() {
 
   // spend less than 50ms pulling and parsing GPS data
   while (ss->available() && run_time < MAX_PARSE_TIME) {
-    new_data = gps->encode( ss->read() );
-    run_time = millis() - start_time;
+    char c = ss->read();
+    // Serial.write(c);
+    new_data = gps->encode(c);
   }
+  run_time = millis() - start_time;
 
   if (run_time > REPORT_PARSE_TIME) {
     Serial.print("extracted data for: ");
@@ -77,18 +81,20 @@ void GPS::extract() {
   if (satellite_count == TinyGPS::GPS_INVALID_SATELLITES)
     satellite_count = 0;
 
-  precision = gps->hdop();
+  precision = gps->hdop() / 100;
   if (precision == TinyGPS::GPS_INVALID_HDOP)
-    precision = 0;
+    precision = 1000.0;
 
   gps->stats(& chars, & sentences, & failed_checksum);
+
+  distance_to_target();
 
   if (chars == 0)
     Serial.println("** No characters received from GPS: check wiring **");
 }
 
 bool GPS::have_lock(){
-  return latitude != 0.0 && longitude != 0.0 && precision > 0;
+  return latitude != 0.0 && longitude != 0.0 && precision < 10;
 }
 
 
@@ -105,9 +111,22 @@ double GPS::coordinate_distance(double th1, double ph1, double th2, double ph2) 
 }
 
 
-float GPS::distance_to_target(){
+double GPS::distance_to_target(){
   if (! have_lock() ) return 65536;
-  return coordinate_distance(latitude, longitude, target_latitude, target_longitude);
+  distance = coordinate_distance(latitude, longitude, target_latitude, target_longitude);
+  return distance;
+}
+
+bool GPS::at_target() {
+  if ( ! have_lock() )  {
+    return false;
+  }
+
+  if ( precision > 10 ) {
+    return false;
+  }
+
+  return distance < 1;
 }
 
 void GPS::dump() {

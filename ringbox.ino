@@ -5,24 +5,39 @@
 #include "GPS.h"
 #include "mpr121.h"
 #include "touch_state_machine.h"
+#include "buzz.h"
 
-unsigned short irqpin = 10;
-unsigned short gps_rx = 4;
-unsigned short gps_tx = 3;
+#define IRQPIN 10
+#define GPS_RX 4
+#define GPS_TX 3
+#define BUZZ_PIN 6
+#define LATCH_PIN 9
+#define LED_1 2
+#define LED_2 5
 
-float destination_latitude = 0.0;
-float destination_longitude = 0.0;
+
+double destination_latitude = 39.998897;
+double destination_longitude = -105.230499;
 
 bool solved = false;
 bool home = false;
+unsigned long start = 0;
+
+unsigned long dump_time = 0;
 
 TouchStateMachine password(4);
-MPR121 touch(irqpin);
-GPS gps(gps_rx, gps_tx, destination_latitude, destination_longitude);
+MPR121 touch(IRQPIN);
+GPS gps(GPS_RX, GPS_TX, destination_latitude, destination_longitude);
+Buzz buzzer(BUZZ_PIN);
 
 void setup(){
   Serial.begin(115200);
   pinMode(13, OUTPUT);
+  pinMode(LED_1, OUTPUT);
+  pinMode(LED_2, OUTPUT);
+  pinMode(BUZZ_PIN, OUTPUT);
+  pinMode(LATCH_PIN, OUTPUT);
+
 
   password.setup();
 
@@ -33,12 +48,38 @@ void setup(){
 }
 
 void loop(){
+//  touch.read();
+//
+//  unsigned short wanted = 0x20;
+//  if ( touch.status() == wanted) {
+//    if (start == 0) {
+//      start = millis();
+//      Serial.println( start );
+//    }
+//  } else {
+//    start = 0;
+//  }
+//
+//  if (start > 0 && millis() - start > 1000) {
+//    open();
+//    forever();
+//  }
+
   if ( ! solved ) {
     check_puzzle();
   }
 
   if ( ! home ) {
     check_gps();
+  } else {
+    unsigned long mils = millis() % 500;
+    if (mils > 100 && mils < 150 ||
+        mils > 200 && mils < 250
+    ) {
+      digitalWrite(13, true);
+    } else {
+      digitalWrite(13, false);
+    }
   }
 
   if ( solved && home ) {
@@ -46,6 +87,8 @@ void loop(){
 
     while (true);
   }
+
+  // buzzer.beep();
 }
 
 void check_puzzle(){
@@ -61,22 +104,50 @@ void check_puzzle(){
 }
 
 void check_gps(){
-  // gps.read();
-  // gps.extract();
+  gps.read();
+  gps.extract();
 
-  // if ( ! gps.have_lock() ) {
-  //   home = false;
-  //   return;
-  // }
+  home = gps.at_target();
 
-  // Serial.println("lock found!");
+  if (home) {
+    Serial.println("home found!");
+    Serial.println(millis() / 1000);
+  }
+
+  if (millis() - dump_time > 1000) {
+    dump_time = millis();
+    Serial.print("\n\n");
+    Serial.print("distance: ");
+    Serial.println(gps.distance, 6);
+    Serial.print("precision: ");
+    Serial.println(gps.precision);
+    Serial.print("satellite_count: ");
+    Serial.println(gps.satellite_count);
+    Serial.print("latitude: ");
+    Serial.println(gps.latitude, 6);
+    Serial.print("longitude: ");
+    Serial.println(gps.longitude, 6);
+    Serial.print("\n\n");
+  }
   // gps.dump();
-  home = true;
 }
 
 void open() {
   Serial.println("complete");
   digitalWrite(13, 1);
+
+  digitalWrite(LATCH_PIN, 1);
+  delay(50);
+  digitalWrite(LATCH_PIN, 0);
+  delay(50);
+  digitalWrite(LATCH_PIN, 1);
+  delay(50);
+  digitalWrite(LATCH_PIN, 0);
+  delay(50);
+}
+
+void forever() {
+  while( true );
 }
 
 
