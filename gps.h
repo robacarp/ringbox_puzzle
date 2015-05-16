@@ -11,7 +11,6 @@
 class GPS {
   unsigned short rx = 4;
   unsigned short tx = 3;
-  double target_latitude, target_longitude;
 
   bool new_data;
 
@@ -19,15 +18,14 @@ class GPS {
   SoftwareSerial * ss;
 
   public:
+    double target_latitude, target_longitude;
     float latitude, longitude;
     double distance;
     unsigned long age, satellite_count, precision, chars;
     unsigned short sentences, failed_checksum;
 
-    GPS (unsigned short rx, unsigned short tx, double target_latitude, double target_longitude)
-      : rx(rx), tx(tx), new_data(false),
-        target_latitude(target_latitude),
-        target_longitude(target_longitude)
+    GPS (unsigned short rx, unsigned short tx)
+      : rx(rx), tx(tx), new_data(false), distance(65537)
     {}
 
     static double coordinate_distance(double, double, double, double);
@@ -39,6 +37,7 @@ class GPS {
     double distance_to_target();
     bool at_target();
     void dump();
+    void reset();
 };
 
 
@@ -47,6 +46,14 @@ void GPS::setup() {
   gps = new TinyGPS;
 
   ss->begin(9600);
+}
+
+void GPS::reset() {
+    target_latitude = target_longitude = 0.0;
+    latitude = longitude = 0.0;
+    distance = 0.0;
+    age = satellite_count = precision = chars = 0;
+    sentences = failed_checksum = 0;
 }
 
 void GPS::read() {
@@ -94,7 +101,7 @@ void GPS::extract() {
 }
 
 bool GPS::have_lock(){
-  return latitude != 0.0 && longitude != 0.0 && precision < 10;
+  return sentences > 0 && latitude != 0.0 && longitude != 0.0 && precision < 10;
 }
 
 

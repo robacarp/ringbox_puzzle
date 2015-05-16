@@ -2,10 +2,12 @@
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
 
+
 #include "GPS.h"
 #include "mpr121.h"
 #include "touch_state_machine.h"
 #include "buzz.h"
+#include "leds.h"
 
 #define IRQPIN 10
 #define GPS_RX 4
@@ -16,90 +18,95 @@
 #define LED_2 5
 
 
-double destination_latitude = 39.998897;
-double destination_longitude = -105.230499;
+// apartment
+#define APARTMENT_LATITUDE 39.998897
+#define APARTMENT_LONGITUDE -105.230499
+
+// flagstaff mtn
+#define FLAGSTAFF_LATITUDE 40.00644302
+#define FLAGSTAFF_LONGITUDE -105.29473114
+
+double destination_latitude = APARTMENT_LATITUDE;
+double destination_longitude = APARTMENT_LONGITUDE;
 
 bool solved = false;
 bool home = false;
-unsigned long start = 0;
-
-unsigned long dump_time = 0;
+bool opened = false;
 
 TouchStateMachine password(4);
 MPR121 touch(IRQPIN);
-GPS gps(GPS_RX, GPS_TX, destination_latitude, destination_longitude);
+GPS gps(GPS_RX, GPS_TX);
 Buzz buzzer(BUZZ_PIN);
+
+LED led_one(LED_1);
+LED led_two(LED_2);
 
 void setup(){
   Serial.begin(115200);
   pinMode(13, OUTPUT);
-  pinMode(LED_1, OUTPUT);
-  pinMode(LED_2, OUTPUT);
-  pinMode(BUZZ_PIN, OUTPUT);
   pinMode(LATCH_PIN, OUTPUT);
 
-
+  buzzer.setup();
+  led_one.setup();
+  led_two.setup();
   password.setup();
-
   gps.setup();
   touch.setup();
 
   test_lock();
+
+  gps.target_latitude = destination_latitude;
+  gps.target_longitude = destination_longitude;
+
+  led_one.on();
+  led_two.on();
 }
 
 void loop(){
-//  touch.read();
-//
-//  unsigned short wanted = 0x20;
-//  if ( touch.status() == wanted) {
-//    if (start == 0) {
-//      start = millis();
-//      Serial.println( start );
-//    }
-//  } else {
-//    start = 0;
-//  }
-//
-//  if (start > 0 && millis() - start > 1000) {
-//    open();
-//    forever();
-//  }
+  buzzer.update();
+  led_one.update();
+  led_two.update();
 
-  if ( ! solved ) {
-    check_puzzle();
-  }
+  check_puzzle();
 
   if ( ! home ) {
     check_gps();
-  } else {
-    unsigned long mils = millis() % 500;
-    if (mils > 100 && mils < 150 ||
-        mils > 200 && mils < 250
-    ) {
-      digitalWrite(13, true);
-    } else {
-      digitalWrite(13, false);
-    }
   }
+  // heartbeat flash
+  //  unsigned long mils = millis() % 500;
+  //  if (mils > 100 && mils < 150 ||
+  //      mils > 200 && mils < 250
+  //  ) {
+  //    digitalWrite(13, true);
+  //  } else {
+  //    digitalWrite(13, false);
+  //  }
 
-  if ( solved && home ) {
+  if ( solved && home && ! opened ) {
     open();
-
-    while (true);
   }
-
-  // buzzer.beep();
 }
 
 void check_puzzle(){
   if ( touch.read() ) {
     unsigned short buttons = touch.status();
-    password.advance_state( buttons );
+
+    if ( ! solved ) {
+      if (buttons > 0) {
+        buzzer.buzz(100);
+      }
+
+      password.advance_state( buttons );
+    }
+
+    if ( solved && buttons == 0x20 ) {
+      open();
+    }
   }
 
   if (password.completed()) {
-    Serial.println("code entered");
     solved = true;
+    led_two.blink( 200 );
   }
 }
 
@@ -107,52 +114,33 @@ void check_gps(){
   gps.read();
   gps.extract();
 
+  if (! gps.have_lock()) return;
+
+  gps.distance_to_target();
+
   home = gps.at_target();
 
   if (home) {
-    Serial.println("home found!");
-    Serial.println(millis() / 1000);
+    led_one.blink( 200 );
+  } else {
+    led_one.blink(2000);
   }
 
-  if (millis() - dump_time > 1000) {
-    dump_time = millis();
-    Serial.print("\n\n");
-    Serial.print("distance: ");
-    Serial.println(gps.distance, 6);
-    Serial.print("precision: ");
-    Serial.println(gps.precision);
-    Serial.print("satellite_count: ");
-    Serial.println(gps.satellite_count);
-    Serial.print("latitude: ");
-    Serial.println(gps.latitude, 6);
-    Serial.print("longitude: ");
-    Serial.println(gps.longitude, 6);
-    Serial.print("\n\n");
-  }
   // gps.dump();
 }
 
 void open() {
-  Serial.println("complete");
+  opened = true;
+
   digitalWrite(13, 1);
 
   digitalWrite(LATCH_PIN, 1);
-  delay(50);
+  delay(100);
   digitalWrite(LATCH_PIN, 0);
-  delay(50);
+  delay(100);
+
   digitalWrite(LATCH_PIN, 1);
-  delay(50);
+  delay(100);
   digitalWrite(LATCH_PIN, 0);
-  delay(50);
+  delay(100);
 }
-
-void forever() {
-  while( true );
-}
-
-
-
-
-
-
-

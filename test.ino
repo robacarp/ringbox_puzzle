@@ -1,8 +1,11 @@
 #include "tones.h"
 
-#define b(v) Serial.println( v ? "true" : "false" );
-#define p(a) Serial.print(a);
-#define q(a,b) Serial.print(a,b);
+#define b(v)
+// Serial.println( v ? "true" : "false" );
+#define p(a)
+// Serial.print(a);
+#define q(a,b)
+// Serial.print(a,b);
 
 boolean tests_pass = true;
 
@@ -84,7 +87,19 @@ bool test_state_machine() {
 // Negative Latitude is South.
 // Testing the haversine to be accurate to <1% error
 bool test_gps(){
-  double distance, lat_a, lon_a, lat_b, lon_b, expected, delta;
+  double distance, lat_a, lon_a, lat_b, lon_b, lat_c, lon_c, expected, delta;
+  // 41.6076N, 88.2037W
+  // 35.1346N, 85.3584W
+  // 760.2 km says wolframalpha
+  lat_a = 41.6076;
+  lon_a = -88.2037;
+  lat_b = 35.1346;
+  lon_b = -85.3584;
+  distance = GPS::coordinate_distance(lat_a, lon_a, lat_b, lon_b);
+  expected = 760.2;
+  delta = 760.2 - distance;
+  assert(delta / expected < 0.01);
+
   // 41.6076N, 88.2037W
   // 41.6507N, 88.2555W
   // 6.442 km
@@ -97,17 +112,33 @@ bool test_gps(){
   delta = expected - distance;
   assert(delta / expected < 0.01);
 
-  // 41.6076N, 88.2037W
-  // 35.1346N, 85.3584W
-  // 760.2 km says wolframalpha
-  lat_a = 41.6076;
-  lon_a = -88.2037;
-  lat_b = 35.1346;
-  lon_b = -85.3584;
-  distance = GPS::coordinate_distance(lat_a, lon_a, lat_b, lon_b);
-  expected = 760.2;
-  delta = 760.2 - distance;
-  assert(delta / expected < 0.01);
+
+  // test that we can enter the target destination and we actually unlock
+  lat_c = 35.1346;
+  lon_c = -85.3584;
+
+  gps.target_latitude = lat_a;
+  gps.target_longitude = lon_a;
+  gps.precision = 3;
+  gps.sentences = 3;
+
+  // ~760km
+  gps.latitude = lat_c;
+  gps.longitude = lon_c;
+  gps.distance_to_target();
+  assert( ! gps.at_target() );
+
+  // ~6km
+  gps.latitude = lat_b;
+  gps.longitude = lon_b;
+  gps.distance_to_target();
+  assert( ! gps.at_target() );
+
+  // <1km
+  gps.latitude = lat_a;
+  gps.longitude = lon_a;
+  gps.distance_to_target();
+  assert( gps.at_target() );
 
   return tests_pass;
 }
@@ -126,11 +157,13 @@ bool test(){
 }
 
 void test_lock(){
-  Serial.print("\n\nSelf Test:");
+  p("\n\nSelf Test:");
   bool result = test();
 
   if ( result ) {
-    Serial.println(": Pass\n");
+    gps.reset();
+
+    p(": Pass\n");
     digitalWrite(13, HIGH);
     delay(500);
     digitalWrite(13, LOW);
